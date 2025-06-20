@@ -3,3 +3,7 @@ uvicorn[standard]
 pandas
 kafka-python
 pyspark
+requests
+matplotlib
+joblib
+prometheus-client

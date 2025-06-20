@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+kafka-python
+pandas
+joblib
+prometheus-client
+scikit-learn>=1.0

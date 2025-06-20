@@ -1,36 +1,43 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col
-from pyspark.sql.types import StructType, StringType, DoubleType, IntegerType
+from pyspark.sql.functions import expr
 
-spark = SparkSession.builder \
-      .appName("StreamJob") \
-      .master("local[*]") \
-      .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-      .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-      .getOrCreate()
+spark = (
+    SparkSession.builder
+        .appName("PySparkKafkaApp")
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1")
+        .getOrCreate()
+)
 
-schema = StructSchema = StructType() \
-      .add("event_time", StringType()) \
-      .add("machine_id", StringType()) \
-      .add("temperature", DoubleType()) \
-      .add("vibration", DoubleType()) \
-      .add("rpm", IntegerType())
+df = (
+    spark.readStream
+            .format("kafka")
+            .option("kafka.bootstrap.servers", "localhost:9092")
+            .option("subscribe", "input_topic")
+            .option("startingOffsets", "earliest")
+            .load()
+)
 
-raw = spark.readStream \
-      .format("kafka") \
-      .option("kafka.bootstrap.servers", "localhost:9092") \
-      .option("subscribe", "machine-sensors") \
-      .load()
+df2 = df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
 
-parsed = raw.selectExpr("CAST(value AS STRING) as json") \
-      .select(from_json(col("json"), schema).alias("d")) \
-      .select("d.*")
+df3 = df2.withColumn("processed_value",
+                        expr("concat(value, ' at ', current_timestamp())"))
 
-query = parsed.writeStream \
-      .format("delta") \
-      .option("checkpointLocation", "checkpoints/sensors") \
-      .option("path", "delta/sensors") \
-      .outputMode("append") \
-      .start()
+console_query = (
+    df3.writeStream
+        .format("console")
+        .option("truncate", "false")
+        .start()
+)
 
-query.awaitTermination()
+kafka_sink = (
+    df3.selectExpr("CAST(key AS STRING) AS key",
+                    "CAST(processed_value AS STRING) AS value")
+        .writeStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", "localhost:9092")
+        .option("topic", "output_topic")
+        .option("checkpointLocation", "/tmp/checkpoints/pykafka_app")
+        .start()
+)
+
+spark.streams.awaitAnyTermination()
