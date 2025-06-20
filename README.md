@@ -8,7 +8,7 @@
 * ​**streaming**​: PySpark streaming job that reads from Kafka, applies transformations, and writes back to Kafka and console
 * ​**batch**​: Python script using Pandas to fetch simulated data every second, append to CSV, and compute basic statistics
 * ​**Data\_Analysis**​: Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualizations
-* ​**models**​: Jupyter notebook for training a predictive maintenance model
+* ​**models**​: Jupyter notebook for training a predictive maintenance model using scikit-learn
 * ​**monitoring**​: Prometheus configuration to collect application metrics
 
 ---
@@ -40,6 +40,36 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+> **Note:** We’ve added **scikit-learn** as a dependency for model training. Make sure `scikit-learn` is present in `requirements.txt` before rebuilding.
+
+---
+
+## Installation
+
+1. Clone the repo:
+   ```bash
+   
+   ```
+
+git clone [https://github.com/yourusername/ServoSense.git](https://github.com/yourusername/ServoSense.git)
+cd ServoSense
+
+```
+2. Activate your virtual environment and install Python packages as above.
+3. Build and tag Docker images (to include scikit-learn in the simulator image):
+
+   ```bash
+docker build -t infra-servo-simulator:latest -f simulator/Dockerfile ..
+```
+
+4. Launch infrastructure:
+   ```bash
+   
+   ```
+
+docker-compose -f infra/docker-compose.yml up -d
+
+```
 ---
 
 ## Quickstart
@@ -71,7 +101,7 @@ Endpoints:
 
 ### 3. Run the Simulator (Optional)
 
-The `simulator` service generates synthetic data every \~0.1s on port 8001.
+The `simulator` service generates synthetic data every \~0.1 s on port 8001. It now requires **scikit-learn** in its Docker context for loading the trained model.
 
 ```bash
 cd simulator
@@ -94,7 +124,7 @@ cd batch
 python batch_job.py
 ```
 
-This script fetches `/simulate` every second, appends results to `data/sensors.csv`, and prints summary statistics.
+This script fetches `/simulate` every second, appends each record to `data/sensors.csv`, and prints summary statistics.
 
 ### 6. Exploratory Data Analysis (EDA)
 
@@ -102,7 +132,7 @@ Open the notebooks in **Data\_Analysis/** to view histograms, time series plots,
 
 ### 7. Train Predictive Model
 
-Open **models/train\_model.ipynb** to train and evaluate a predictive maintenance model using scikit-learn.
+Open **models/train\_model.ipynb** to train and evaluate a predictive maintenance model using ​**scikit-learn**​.
 
 ### 8. Monitoring with Prometheus
 
@@ -122,17 +152,17 @@ ServoSense/
 │   └── docker-compose.yml
 ├── serving/              # FastAPI service: ingest, store, simulate readings
 │   └── app.py
-├── simulator/            # FastAPI simulator generating synthetic data
+├── simulator/            # FastAPI simulator generating synthetic data (requires sklearn)
 │   └── main.py
 ├── streaming/            # PySpark streaming job (stream_job.py)
 ├── batch/                # batch_job.py + data/sensors.csv
 │   ├── batch_job.py
 │   └── data/sensors.csv
 ├── Data_Analysis/        # Jupyter notebooks for EDA and plots
-├── models/               # train_model.ipynb for ML training
+├── models/               # train_model.ipynb for ML training (scikit-learn)
 ├── monitoring/           # Prometheus configuration
 │   └── prometheus.yml
-├── requirements.txt      # Python dependencies
+├── requirements.txt      # Python dependencies (including scikit-learn)
 └── README.md             # This file
 ```
 
@@ -146,14 +176,14 @@ ServoSense/
 
 ### serving
 
-* `POST /sensor`: accepts a sensor payload, timestamps it, writes to CSV, and publishes to Kafka topic `machine-sensors`.
+* `POST /sensor`: timestamps and stores payload, writes to CSV, publishes to Kafka topic `machine-sensors`.
 * `GET /sensor`: returns all stored readings as JSON.
 * `GET /simulate`: returns a single random sensor reading.
 
 ### simulator
 
-* Maintains a global `current_time` that increments by a random 0.05–0.15 second delta per request.
-* Useful for load testing and continuous data generation on port 8001.
+* Maintains a global `current_time` that increments by a random 0.05–0.15 s per request.
+* Loads a pre-trained `model_rf.pkl` via joblib (requires scikit-learn).
 
 ### streaming
 
@@ -164,10 +194,7 @@ ServoSense/
 
 ### batch
 
-* `batch_job.py`: a loop that:
-  1. Fetches `/simulate` every second.
-  2. Appends each record to `data/sensors.csv`.
-  3. Prints simple metrics (e.g., average temperature).
+* `batch_job.py`: loop that fetches `/simulate` every second, appends to `data/sensors.csv`, and prints simple metrics.
 
 ### Data\_Analysis
 
@@ -179,7 +206,6 @@ ServoSense/
 ### models
 
 * `train_model.ipynb`: builds and evaluates a predictive maintenance model using scikit-learn.
-* 
 
 ### monitoring
 
@@ -210,5 +236,5 @@ spark-submit \
 
 ## Contact
 
-For questions or collaboration, reach out to Mati (project maintainer).
+For questions or collaboration, reach out to @sculpttechproject
 
