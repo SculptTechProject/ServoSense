@@ -1,112 +1,106 @@
 # ServoSense
 
-**ServoSense** is an end-to-end pipeline for processing and analyzing industrial machine sensor data. It consists of several components:
+**ServoSense** is an end‑to‑end pipeline for processing and analyzing industrial machine sensor data. It consists of several components:
 
-* ​**infra**​: Docker Compose setup for Kafka and Zookeeper
-* ​**serving**​: FastAPI application to receive, store, and retrieve sensor readings, plus a simulation endpoint
-* ​**simulator**​: Alternative FastAPI service that generates random sensor data every \~0.1 seconds
-* ​**streaming**​: PySpark streaming job that reads from Kafka, applies transformations, and writes back to Kafka and console
-* ​**batch**​: Python script using Pandas to fetch simulated data every second, append to CSV, and compute basic statistics
-* ​**Data\_Analysis**​: Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualizations
-* ​**models**​: Jupyter notebook for training a predictive maintenance model using scikit-learn
-* ​**monitoring**​: Prometheus configuration to collect application metrics
+- **infra** – Docker Compose setup for Kafka, Zookeeper, Prometheus and optional Grafana
+- **serving** – FastAPI application that receives, stores and retrieves sensor readings (includes a single‑shot simulation endpoint)
+- **simulator** – Stand‑alone FastAPI service that continuously generates synthetic sensor data (\~0.1 s interval) on port **8001**
+- **streaming** – PySpark Structured Streaming job that reads from Kafka, transforms data and writes back to Kafka / console
+- **batch** – Python script that fetches simulated data every second, appends to CSV and computes basic statistics
+- **Data\_Analysis** – Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualisations
+- **models** – Notebook for training a predictive‑maintenance model with scikit‑learn
+- **monitoring** – Prometheus (and optional Grafana) configuration
 
 ---
 
 ## Table of Contents
 
-1. [Prerequisites](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#prerequisites)
-2. [Installation](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#installation)
-3. [Quickstart](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#quickstart)
-4. [Project Structure](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#project-structure)
-5. [Component Overview](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#component-overview)
-6. [Examples](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#examples)
-7. [Contact](https://chatgpt.com/c/6855a53f-1fc0-8011-9d08-abaf919fbbee#contact)
+1. [Prerequisites](#prerequisites)
+2. [Installation](#installation)
+3. [Quickstart](#quickstart)
+4. [Project Structure](#project-structure)
+5. [Component Overview](#component-overview)
+6. [Examples](#examples)
+7. [Contact](#contact)
 
 ---
 
 ## Prerequisites
 
-* Python 3.8 or newer
-* Docker & Docker Compose
-* Java (for Spark, if running streaming)
+- Python **3.8+**
+- Docker & Docker Compose
+- Java (required by Spark)
 
-Install Python dependencies in a virtual environment:
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate       # Windows PowerShell: .\.venv\Scripts\Activate.ps1
+source .venv/bin/activate        # PowerShell: .\.venv\Scripts\Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> **Note:** We’ve added **scikit-learn** as a dependency for model training. Make sure `scikit-learn` is present in `requirements.txt` before rebuilding.
+> **Heads‑up:** `scikit-learn` is used by the simulator and model notebook—make sure it is listed in *requirements.txt* before building Docker images.
 
 ---
 
 ## Installation
 
-1. Clone the repo:
-   ```bash
-   
-   ```
-
-git clone [https://github.com/yourusername/ServoSense.git](https://github.com/yourusername/ServoSense.git)
+```bash
+# Clone the repo
+git clone https://github.com/SculptTechProject/ServoSense.git
 cd ServoSense
 
-```
-2. Activate your virtual environment and install Python packages as above.
-3. Build and tag Docker images (to include scikit-learn in the simulator image):
-
-   ```bash
-docker build -t infra-servo-simulator:latest -f simulator/Dockerfile ..
+# Activate your virtual env & install deps (see above)
 ```
 
-4. Launch infrastructure:
-   ```bash
-   
-   ```
+Build the simulator image (includes **scikit-learn**):
 
-docker-compose -f infra/docker-compose.yml up -d
-
+```bash
+docker build -t servo-simulator:latest -f simulator/Dockerfile .
 ```
+
+Bring up the infrastructure:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
 ---
 
 ## Quickstart
 
-### 1. Launch Kafka & Zookeeper
+### 1. Start Kafka & Zookeeper
 
 ```bash
-docker-compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml up -d kafka zookeeper
+docker compose -f infra/docker-compose.yml ps
 ```
 
-Verify services:
-
-```bash
-docker-compose -f infra/docker-compose.yml ps
-```
-
-### 2. Start the FastAPI Server
+### 2. Run the FastAPI server
 
 ```bash
 cd serving
 uvicorn app:app --reload --port 8000
 ```
 
-Endpoints:
+Key endpoints:
 
-* `POST /sensor` – add a sensor reading
-* `GET /sensor` – fetch all stored readings
-* `GET /simulate` – generate a single random sensor reading
 
-### 3. Run the Simulator (Optional)
+| Method | Path      | Purpose                      |
+| ------ | --------- | ---------------------------- |
+| POST   | /sensor   | Store a sensor reading       |
+| GET    | /sensor   | Retrieve all stored readings |
+| GET    | /simulate | Generate 500 random reading  |
 
-The `simulator` service generates synthetic data every \~0.1 s on port 8001. It now requires **scikit-learn** in its Docker context for loading the trained model.
+### 3. (Optional) Run the Simulator
 
 ```bash
 cd simulator
 uvicorn main:app --reload --port 8001
 ```
+
+The simulator emits new data every \~0.1 s and exposes Prometheus metrics at `/metrics`.
 
 ### 4. Streaming with PySpark
 
@@ -115,7 +109,7 @@ cd streaming
 python stream_job.py
 ```
 
-This job reads from Kafka `input_topic`, appends a timestamp, prints to console, and writes to `output_topic`.
+The job reads from topic **machine-sensors**, enriches each event with a processing timestamp and writes the result to **machine-sensors-processed** as well as the console.
 
 ### 5. Batch Processing with Pandas
 
@@ -124,22 +118,40 @@ cd batch
 python batch_job.py
 ```
 
-This script fetches `/simulate` every second, appends each record to `data/sensors.csv`, and prints summary statistics.
+The script queries the simulator every second, appends rows to `data/sensors.csv` and prints rolling statistics.
 
-### 6. Exploratory Data Analysis (EDA)
+### 6. Exploratory Data Analysis
 
-Open the notebooks in **Data\_Analysis/** to view histograms, time series plots, and threshold-based visualizations (e.g., points above 80 °C).
+Open the notebooks in **Data\_Analysis/** to explore histograms, time‑series plots and threshold-based visualisations.
 
-### 7. Train Predictive Model
+### 7. Train the Predictive Model
 
-Open **models/train\_model.ipynb** to train and evaluate a predictive maintenance model using ​**scikit-learn**​.
+Open **models/train\_model.ipynb** and follow the notebook to train and evaluate a random‑forest classifier for predictive maintenance.
 
-### 8. Monitoring with Prometheus
+### 8. Monitoring
 
-Start Prometheus to scrape application metrics:
+Start Prometheus (and optionally Grafana):
 
 ```bash
-prometheus --config.file=monitoring/prometheus.yml
+docker compose -f infra/docker-compose.yml up -d prometheus grafana
+```
+
+Visit:
+
+- Prometheus – [http://localhost:9090](http://localhost:9090)
+- Grafana – [http://localhost:3000](http://localhost:3000) (default credentials: *admin / admin*)
+
+The default `monitoring/prometheus.yml` scrapes:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs: [{ targets: ['localhost:9090'] }]
+  - job_name: servo-simulator
+    static_configs: [{ targets: ['servo-simulator:8001'] }]
 ```
 
 ---
@@ -148,84 +160,54 @@ prometheus --config.file=monitoring/prometheus.yml
 
 ```text
 ServoSense/
-├── infra/                # Docker Compose for Kafka & Zookeeper
-│   └── docker-compose.yml
-├── serving/              # FastAPI service: ingest, store, simulate readings
-│   └── app.py
-├── simulator/            # FastAPI simulator generating synthetic data (requires sklearn)
-│   └── main.py
-├── streaming/            # PySpark streaming job (stream_job.py)
-├── batch/                # batch_job.py + data/sensors.csv
-│   ├── batch_job.py
-│   └── data/sensors.csv
-├── Data_Analysis/        # Jupyter notebooks for EDA and plots
-├── models/               # train_model.ipynb for ML training (scikit-learn)
-├── monitoring/           # Prometheus configuration
-│   └── prometheus.yml
-├── requirements.txt      # Python dependencies (including scikit-learn)
-└── README.md             # This file
+├── infra/                # Docker Compose files
+├── serving/              # FastAPI ingest API
+├── simulator/            # Continuous data generator
+├── streaming/            # PySpark Structured Streaming job
+├── batch/                # Batch fetch + stats
+├── Data_Analysis/        # Jupyter notebooks (EDA)
+├── models/               # ML training notebook
+├── monitoring/           # Prometheus / Grafana config
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
 ## Component Overview
 
-### infra
+- Zookeeper and Kafka containers (plus Prometheus & Grafana)
 
-* Brings up Zookeeper and Kafka in Docker containers.
+* Timestamps and stores sensor payloads
+* Publishes events to Kafka topic **machine-sensors**
 
-### serving
+- Generates synthetic sensor events at \~10 Hz
+- Loads pre‑trained model `model_rf.pkl`
+- Exposes `/metrics` for Prometheus
 
-* `POST /sensor`: timestamps and stores payload, writes to CSV, publishes to Kafka topic `machine-sensors`.
-* `GET /sensor`: returns all stored readings as JSON.
-* `GET /simulate`: returns a single random sensor reading.
+* Structured Streaming job that:
+  - Reads from **machine-sensors**
+  - Adds processing timestamp
+  - Writes to console and **machine-sensors-processed**
 
-### simulator
-
-* Maintains a global `current_time` that increments by a random 0.05–0.15 s per request.
-* Loads a pre-trained `model_rf.pkl` via joblib (requires scikit-learn).
-
-### streaming
-
-* `stream_job.py` sets up a Spark Structured Streaming job:
-  * Read from Kafka topic `input_topic`.
-  * Transform values and add processing timestamp.
-  * Write results to console and Kafka topic `output_topic`.
-
-### batch
-
-* `batch_job.py`: loop that fetches `/simulate` every second, appends to `data/sensors.csv`, and prints simple metrics.
-
-### Data\_Analysis
-
-* Notebooks demonstrating EDA with Pandas and Matplotlib:
-  * Histograms of temperature distribution.
-  * Time-series plots per machine.
-  * Highlight measurements above thresholds.
-
-### models
-
-* `train_model.ipynb`: builds and evaluates a predictive maintenance model using scikit-learn.
-
-### monitoring
-
-* `prometheus.yml`: configures Prometheus to scrape metrics exposed by FastAPI endpoints and client libraries.
+- Polls `/simulate` once per second
+- Appends rows to CSV and prints summary stats
 
 ---
 
 ## Examples
 
 ```bash
-# Activate environment
+# Activate env
 source .venv/bin/activate
 
-# Start Kafka & Zookeeper
-docker-compose -f infra/docker-compose.yml up -d
+# Infra
+docker compose -f infra/docker-compose.yml up -d
 
-# Launch FastAPI server
+# API
 cd serving && uvicorn app:app --reload
 
-# Run PySpark streaming job
+# Streaming
 cd streaming
 spark-submit \
   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 \
@@ -236,5 +218,4 @@ spark-submit \
 
 ## Contact
 
-For questions or collaboration, reach out to @sculpttechproject
-
+Questions? Open an issue or ping **@sculpttechproject** 😊

@@ -9,7 +9,7 @@ pd.DataFrame(columns=["event_time","machine_id","temperature","vibration","rpm"]
       .to_csv("data/sensors.csv", index=False)
 
 while max_sen > curr_sen:
-      resp = requests.get("http://127.0.0.1:8000/simulate")
+      resp = requests.get("http://127.0.0.1:8001/simulate")
       record = resp.json()
       pd.DataFrame([record]) \
             .to_csv("data/sensors.csv", mode="a", header=False, index=False)
