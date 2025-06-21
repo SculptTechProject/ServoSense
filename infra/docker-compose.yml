@@ -20,6 +20,22 @@ services:
       - "9092:9092"
     depends_on:
       - zookeeper
+  
+  spark:
+    image: bitnami/spark:3.5
+    container_name: servo-spark
+    environment:
+      - SPARK_MODE=client 
+    volumes:
+      - ../streaming:/app
+    command: >
+      spark-submit
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
+      /app/stream_job.py
+    depends_on:
+      - kafka
+    ports:
+      - "4040:4040"
 
   servo-simulator:
     build:

@@ -7,14 +7,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Servo-simulator – opcja A: przez sieć Dockera
   - job_name: 'servo-simulator'
     metrics_path: /metrics
     static_configs:
       - targets: ['servo-simulator:8000']
-
-  # Servo-simulator – opcja B: przez host.docker.internal (Windows/macOS)
-  # - job_name: 'servo-simulator-host'
-  #   metrics_path: /metrics
-  #   static_configs:
-  #     - targets: ['host.docker.internal:8001']

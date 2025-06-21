@@ -1,3 +1,4 @@
+# SCRIPT FOR MANUAL DATA
 import time
 import requests
 import pandas as pd
@@ -16,8 +17,3 @@ while max_sen > curr_sen:
 
       curr_sen += 1
       time.sleep(0.01)
-
-
-
-
-

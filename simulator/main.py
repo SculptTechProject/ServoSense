@@ -10,6 +10,7 @@ import json
 import random
 import joblib
 import pandas as pd
+from pathlib import Path
 from typing import List
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
@@ -24,6 +25,9 @@ current_time = datetime.utcnow()
 
 file_path = "../batch/data/sensors.csv" # Can get data from DB there ;)
 
+CSV_FILE   = Path("/app/data/sensors.csv") # Absolute path in container (docker)  
+KAFKA_TOPIC = "machine-sensors"
+
 producer = KafkaProducer(
       bootstrap_servers="kafka:9092",
       value_serializer=lambda v: json.dumps(v).encode()
@@ -37,39 +41,33 @@ def read_root():
 # ---------------------------------------------------------
 
 class Sensor(BaseModel):
-      event_time: datetime
+      event_time: datetime | None = None
       machine_id: str
       temperature: float
       vibration: float
       rpm: int
 
-@app.post("/sensor")
+@app.post("/sensor", response_model=Sensor)
 def add_sensor(sensor: Sensor):
-      # prepare record with timestamp
-      record = sensor.dict()
-      record["event_time"] = datetime.utcnow().isoformat() + "Z"
+      if sensor.event_time is None:
+            sensor.event_time = datetime.utcnow()
 
-      # ensure data directory exists
-      os.makedirs(os.path.dirname(file_path), exist_ok=True)
-      file_exists = os.path.exists(file_path)
+      rec = sensor.model_dump(mode="python")
+      rec["event_time"] = rec["event_time"].isoformat() + "Z"
 
-      # append to CSV
-      with open(file_path, "a", newline="") as f:
+      CSV_FILE.parent.mkdir(parents=True, exist_ok=True)
+      write_header = not CSV_FILE.exists()
+
+      with CSV_FILE.open("a", newline="") as f:
             writer = csv.writer(f)
-      if not file_exists:
-            writer.writerow(["event_time", "machine_id", "temperature", "vibration", "rpm"])
-      writer.writerow([
-            record["event_time"],
-            record["machine_id"],
-            record["temperature"],
-            record["vibration"],
-            record["rpm"]
-      ])
+            if write_header:
+                  writer.writerow(rec.keys())
+            writer.writerow(rec.values())
 
-      producer.send("machine-sensors", record)
+      producer.send(KAFKA_TOPIC, rec)
       producer.flush()
 
-      return record
+      return sensor
 
 
 # GET endpoint to return all stored sensor records

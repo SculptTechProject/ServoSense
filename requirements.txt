@@ -8,3 +8,4 @@ matplotlib
 joblib
 prometheus-client
 scikit-learn>=1.0
+pyarrow
