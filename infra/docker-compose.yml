@@ -3,8 +3,7 @@ services:
     image: bitnami/zookeeper:latest
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-    ports:
-      - "2181:2181"
+    ports: ["2181:2181"]
 
   kafka:
     image: bitnami/kafka:3.5.1
@@ -16,16 +15,43 @@ services:
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-    ports:
-      - "9092:9092"
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
     depends_on:
-      - zookeeper
-  
+      zookeeper:
+        condition: service_started
+    ports: ["9092:9092"]
+
+  # ---------- FastAPI + topic bootstrap ----------
+  servo-simulator:
+    build:
+      context: ..
+      dockerfile: simulator/Dockerfile
+    container_name: servo-simulator
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ../simulator:/app
+      - ../batch/data:/app/data
+      - ../serving:/serving:ro
+    ports: ["8001:8000"]
+    depends_on:
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  # ---------- Spark – starts when fastapi is healthy ----------
   spark:
     image: bitnami/spark:3.5
     container_name: servo-spark
     environment:
-      - SPARK_MODE=client 
+      - SPARK_MODE=client
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     volumes:
       - ../streaming:/app
     command: >
@@ -33,31 +59,18 @@ services:
       --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
       /app/stream_job.py
     depends_on:
-      - kafka
-    ports:
-      - "4040:4040"
-
-  servo-simulator:
-    build:
-      context: ..
-      dockerfile: simulator/Dockerfile
-    container_name: servo-simulator
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8001:8000"
-    volumes:
-      - ../simulator:/app
-      - ../batch/data:/app/data
-      - ../serving:/serving:ro
-    depends_on:
-      - kafka
+      kafka:
+        condition: service_started
+      servo-simulator:
+        condition: service_healthy
+    ports: ["4040:4040"]
 
   prometheus:
     image: prom/prometheus:latest
     container_name: servo-prometheus
     volumes:
       - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
+    ports: ["9090:9090"]
     depends_on:
-      - servo-simulator
+      servo-simulator:
+        condition: service_healthy

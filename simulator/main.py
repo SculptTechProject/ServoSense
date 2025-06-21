@@ -12,6 +12,8 @@ import joblib
 import pandas as pd
 from pathlib import Path
 from typing import List
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError 
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI()
@@ -28,11 +30,34 @@ file_path = "../batch/data/sensors.csv" # Can get data from DB there ;)
 CSV_FILE   = Path("/app/data/sensors.csv") # Absolute path in container (docker)  
 KAFKA_TOPIC = "machine-sensors"
 
+# ---------------------------------------------------------
+
+@app.on_event("startup")
+def init_kafka_topics() -> None:
+      admin = KafkaAdminClient(
+            bootstrap_servers="kafka:9092",
+            client_id="topic-bootstrap"
+      )
+      try:
+            admin.create_topics(
+                  [NewTopic(
+                  name="machine-sensors",
+                  num_partitions=1,
+                  replication_factor=1
+                  )]
+            )
+      except TopicAlreadyExistsError:
+            pass
+      finally:
+            admin.close()
+
+
 producer = KafkaProducer(
       bootstrap_servers="kafka:9092",
       value_serializer=lambda v: json.dumps(v).encode()
 )
 
+# ---------------------------------------------------------
 
 @app.get("/")
 def read_root():
@@ -128,3 +153,10 @@ def predict_all():
 def metrics():
       data = generate_latest()
       return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
+# ---------------------------------------------------------
+
+@app.get("/health", status_code=200)
+def health():
+    return {"status": "ok"}
