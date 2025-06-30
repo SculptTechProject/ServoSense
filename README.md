@@ -7,7 +7,7 @@
 - **simulator** – Stand‑alone FastAPI service that continuously generates synthetic sensor data (\~0.1 s interval) on port **8001**
 - **streaming** – PySpark Structured Streaming job that reads from Kafka, transforms data and writes back to Kafka / console
 - **batch** – Python script that fetches simulated data every second, appends to CSV and computes basic statistics
-- **Data\_Analysis** – Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualisations
+- **Data_Analysis** – Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualisations
 - **models** – Notebook for training a predictive‑maintenance model with scikit‑learn
 - **monitoring** – Prometheus (and optional Grafana) configuration
 
