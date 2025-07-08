@@ -1,221 +1,192 @@
 # ServoSense
 
-**ServoSense** is an end‑to‑end pipeline for processing and analyzing industrial machine sensor data. It consists of several components:
+**ServoSense** is an end-to-end pipeline for processing and analyzing industrial machine sensor data. It integrates data generation, ingestion, streaming, batch processing, EDA, modeling, and monitoring in one cohesive toolkit.
 
-- **infra** – Docker Compose setup for Kafka, Zookeeper, Prometheus and optional Grafana
-- **serving** – FastAPI application that receives, stores and retrieves sensor readings (includes a single‑shot simulation endpoint)
-- **simulator** – Stand‑alone FastAPI service that continuously generates synthetic sensor data (\~0.1 s interval) on port **8001**
-- **streaming** – PySpark Structured Streaming job that reads from Kafka, transforms data and writes back to Kafka / console
-- **batch** – Python script that fetches simulated data every second, appends to CSV and computes basic statistics
-- **Data_Analysis** – Jupyter notebooks for exploratory data analysis (EDA) and Matplotlib visualisations
-- **models** – Notebook for training a predictive‑maintenance model with scikit‑learn
-- **monitoring** – Prometheus (and optional Grafana) configuration
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-compose-blue)](https://docs.docker.com/compose/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
----
+## 🚀 Features
 
-## Table of Contents
+* **Infrastructure**: Docker Compose setup with Kafka, Zookeeper, Prometheus, and Grafana.
+* **Serving API**: FastAPI service for sensor data CRUD, simulation, prediction, and health checks.
+* **Simulator**: Synthetic data generator (\~10 Hz) with Prometheus metrics.
+* **Streaming**: PySpark Structured Streaming for real-time processing.
+* **Batch**: Python scripts with Pandas for CSV logging and rolling stats.
+* **EDA**: Jupyter notebooks for exploratory analysis and visualization.
+* **Models**: Train and serve Random Forest predictive-maintenance models.
+* **Monitoring**: Preconfigured Prometheus & Grafana dashboards and alerts.
+
+## 📋 Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Installation](#installation)
 3. [Quickstart](#quickstart)
-4. [Project Structure](#project-structure)
-5. [Component Overview](#component-overview)
-6. [Examples](#examples)
-7. [Contact](#contact)
+4. [API Endpoints](#api-endpoints)
+5. [Project Structure](#project-structure)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Contact](#contact)
 
 ---
 
-## Prerequisites
+## 🛠️ Prerequisites
 
-- Python **3.9+**
-- Docker & Docker Compose
-- Java (required by Spark)
-
-Create and activate a virtual environment, then install dependencies:
+* Python **3.9** or newer
+* Docker & Docker Compose
+* Java (for Spark)
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # PowerShell: .\.venv\Scripts\Activate.ps1
+source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> **Heads‑up:** `scikit-learn` is used by the simulator and model notebook—make sure it is listed in *requirements.txt* before building Docker images.
+> ⚠️ Ensure `scikit-learn` is listed in `requirements.txt` before building Docker images.
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 ```bash
-# Clone the repo
 git clone https://github.com/SculptTechProject/ServoSense.git
 cd ServoSense
-
-# Activate your virtual env & install deps (see above)
+# Activate environment & install dependencies
 ```
 
-Build the simulator image (includes **scikit-learn**):
+Build the simulator image:
 
 ```bash
 docker build -t servo-simulator:latest -f simulator/Dockerfile .
 ```
 
-Bring up the infrastructure:
+Bring up core services:
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d
+docker-compose -f infra/docker-compose.yml up -d
 ```
 
 ---
 
-## Quickstart
+## 🏃 Quickstart
 
-### 1. Start Kafka & Zookeeper
+1. **Start Kafka & Zookeeper**
 
-```bash
-docker compose -f infra/docker-compose.yml up -d kafka zookeeper
-docker compose -f infra/docker-compose.yml ps
-```
+   ```bash
+   ```
 
-### 2. Run the FastAPI server
+docker-compose -f infra/docker-compose.yml up -d kafka zookeeper
 
-```bash
+````
+
+2. **Run the API Server**
+
+   ```bash
 cd serving
 uvicorn app:app --reload --port 8000
-```
+````
 
-Key endpoints:
+3. **(Optional) Launch Simulator**
 
+   ```bash
+   ```
 
-| Method | Path      | Purpose                      |
-| ------ | --------- | ---------------------------- |
-| POST   | /sensor   | Store a sensor reading       |
-| GET    | /sensor   | Retrieve all stored readings |
-| GET    | /simulate | Generate 500 random reading  |
-
-### 3. (Optional) Run the Simulator
-
-```bash
 cd simulator
-uvicorn main:app --reload --port 8001
-```
+uvicorn main\:app --reload --port 8001
 
-The simulator emits new data every \~0.1 s and exposes Prometheus metrics at `/metrics`.
+````
 
-### 4. Streaming with PySpark
+4. **Run Streaming Job**
 
-```bash
+   ```bash
 cd streaming
-python stream_job.py
-```
+spark-submit \
+  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 \
+  stream_job.py
+````
 
-The job reads from topic **machine-sensors**, enriches each event with a processing timestamp and writes the result to **machine-sensors-processed** as well as the console.
+5. **Batch Processing**
 
-### 5. Batch Processing with Pandas
+   ```bash
+   ```
 
-```bash
 cd batch
-python batch_job.py
-```
+python batch\_job.py
 
-The script queries the simulator every second, appends rows to `data/sensors.csv` and prints rolling statistics.
+````
 
-### 6. Exploratory Data Analysis
+6. **Open EDA Notebooks** in `Data_Analysis/`
 
-Open the notebooks in **Data\_Analysis/** to explore histograms, time‑series plots and threshold-based visualisations.
+7. **Train Model** in `models/train_model.ipynb`
 
-### 7. Train the Predictive Model
+8. **Start Monitoring**
 
-Open **models/train\_model.ipynb** and follow the notebook to train and evaluate a random‑forest classifier for predictive maintenance.
+   ```bash
+docker-compose -f infra/docker-compose.yml up -d prometheus grafana
+````
 
-### 8. Monitoring
-
-Start Prometheus (and optionally Grafana):
-
-```bash
-docker compose -f infra/docker-compose.yml up -d prometheus grafana
-```
-
-Visit:
-
-- Prometheus – [http://localhost:9090](http://localhost:9090)
-- Grafana – [http://localhost:3000](http://localhost:3000) (default credentials: *admin / admin*)
-
-The default `monitoring/prometheus.yml` scrapes:
-
-```yaml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: prometheus
-    static_configs: [{ targets: ['localhost:9090'] }]
-  - job_name: servo-simulator
-    static_configs: [{ targets: ['servo-simulator:8001'] }]
-```
+* Prometheus: [http://localhost:9090](http://localhost:9090)
+* Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin)
 
 ---
 
-## Project Structure
+## 🔗 API Endpoints
 
-```text
+FastAPI serving endpoints:
+
+| Method | Path           | Description                                                                                   |
+| ------ | -------------- | --------------------------------------------------------------------------------------------- |
+| GET    | `/`            | Health check, returns `{ "message": "Server is working!" }`.                                  |
+| POST   | `/sensor`      | Add a new sensor reading (JSON body).                                                         |
+| GET    | `/sensor`      | Retrieve all stored sensor readings.                                                          |
+| GET    | `/simulate`    | Generate and return a single simulated reading.                                               |
+| GET    | `/predict_all` | Run model predictions on all CSV readings, returns list with `is_hot` flag and `probability`. |
+| GET    | `/metrics`     | Prometheus metrics endpoint for simulation gauges.                                            |
+| GET    | `/health`      | Service health endpoint, returns `{ "status": "ok" }`.                                        |
+
+---
+
+## 📂 Project Structure
+
+```
 ServoSense/
-├── infra/                # Docker Compose files
-├── serving/              # FastAPI ingest API
-├── simulator/            # Continuous data generator
-├── streaming/            # PySpark Structured Streaming job
-├── batch/                # Batch fetch + stats
-├── Data_Analysis/        # Jupyter notebooks (EDA)
-├── models/               # ML training notebook
-├── monitoring/           # Prometheus / Grafana config
+├── infra/            # Docker Compose for infra
+├── serving/          # FastAPI ingestion & prediction API
+├── simulator/        # Synthetic data generator
+├── streaming/        # PySpark streaming job
+├── batch/            # Batch processing scripts
+├── Data_Analysis/    # EDA notebooks
+├── models/           # ML training notebook & saved model
+├── monitoring/       # Prometheus & Grafana configs
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Component Overview
+## 🤝 Contributing
 
-- Zookeeper and Kafka containers (plus Prometheus & Grafana)
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Commit changes (`git commit -m "Add feature"`)
+4. Push to branch (`git push origin feat/my-feature`)
+5. Open a Pull Request
 
-* Timestamps and stores sensor payloads
-* Publishes events to Kafka topic **machine-sensors**
-
-- Generates synthetic sensor events at \~10 Hz
-- Loads pre‑trained model `model_rf.pkl`
-- Exposes `/metrics` for Prometheus
-
-* Structured Streaming job that:
-  - Reads from **machine-sensors**
-  - Adds processing timestamp
-  - Writes to console and **machine-sensors-processed**
-
-- Polls `/simulate` once per second
-- Appends rows to CSV and prints summary stats
+Please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## Examples
+## 📄 License
 
-```bash
-# Activate env
-source .venv/bin/activate
+This project is licensed under the MIT License.
 
-# Infra
-docker compose -f infra/docker-compose.yml up -d
+---
 
-# API
-cd serving && uvicorn app:app --reload
+## 📬 Contact
 
-# Streaming
-cd streaming
-spark-submit \
-  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 \
-  stream_job.py
+Questions or feedback? Open an issue or ping us on GitHub:
+
 ```
-
----
-
-## Contact
-
-Questions? Open an issue or ping **@sculpttechproject** 😊
+github.com/SculptTechProject/ServoSense
+```
