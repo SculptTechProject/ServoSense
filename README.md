@@ -1,5 +1,7 @@
 # ServoSense
 
+### Please check pinned project - Servo Sense App on my GitHub account! :)
+
 **ServoSense** is an end-to-end pipeline for processing and analyzing industrial machine sensor data. It integrates data generation, ingestion, streaming, batch processing, EDA, modeling, and monitoring in one cohesive toolkit.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
